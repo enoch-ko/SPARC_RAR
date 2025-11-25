@@ -38,44 +38,69 @@ def get_SBdisk(galaxy:str, inc:float):
     return rad, SBdisk
 
 
-def plot_RCs(r, Vdisk_data, rad, vcdisk):
-    plt.plot(r, Vdisk_data, 'o', label="Data Vdisk", markersize=6)
-    plt.plot(rad, vcdisk, '-', label="Model Vdisk", linewidth=2)
-    plt.xlabel("Radius (kpc)", fontsize=14)
-    plt.ylabel("Vdisk (km/s)", fontsize=14)
-    plt.title("Disk Rotation Curve", fontsize=16)
-    plt.legend(fontsize=12)
-    plt.grid()
-    plt.savefig("/mnt/users/koe/SPARC_RAR/test_vcdisk.png", dpi=300)
-    plt.close()
-
-
-def plot_SBdisk(r, SBdisk_data, rad, SBdisk_model):
-    plt.plot(r, SBdisk_data, 'o', label="Data SBdisk", markersize=6)
-    plt.plot(rad, SBdisk_model, '-', label="Model SBdisk", linewidth=2)
-    plt.xlabel("Radius (kpc)", fontsize=14)
-    plt.ylabel("SBdisk (Lsun/kpc^2)", fontsize=14)
-    plt.title("Disk Surface Brightness Profile", fontsize=16)
-    plt.legend(fontsize=12)
-    plt.yscale("log")
-    plt.grid()
-    plt.savefig("/mnt/users/koe/SPARC_RAR/test_SBdisk.png", dpi=300)
-    plt.close()
-
-
 if __name__ == "__main__":
     SPARC_data, _, _ = get_SPARC_data()
-    gal = "DDO170"
 
-    r = jnp.array(SPARC_data[gal]["r"])
-    data = SPARC_data[gal]["data"]
-    inc, Rdisk = get_table(gal)
-    rad, SBdisk = get_SBdisk(gal, inc)
-    # SBdisk = jnp.array(data["SBdisk"]) * 1e6    # in Lsun / kpc^2
+    gals = [
+        "DDO170", "NGC4100", "NGC0024", "NGC5585",
+        "NGC0247", "UGC02259", "NGC3877", "UGC04325"
+        ]   # 8 'upward hooked' galaxies from https://arxiv.org/pdf/2307.09507
 
-    surface_density = pdisk * SBdisk    # in Msun / kpc^2
+    # --- Rotation curve grid (2x4) ---
+    fig1, axes1 = plt.subplots(2, 4, figsize=(16, 8), sharex=False, sharey=False)
+    axes1 = axes1.flatten()
+    for i, gal_i in enumerate(gals):
+        try:
+            inc_i, Rdisk_i = get_table(gal_i)
+            rad_i, SBdisk_i = get_SBdisk(gal_i, inc_i)
+            surface_density_i = pdisk * SBdisk_i
+            v_disk_i = vcdisk(rad_i, surface_density_i, Rdisk_i, rhoz='exp')
 
-    v_disk = vcdisk(rad, surface_density, Rdisk, rhoz='exp')   # in km/s
+            r_i = jnp.array(SPARC_data[gal_i]["r"])
+            data_i = SPARC_data[gal_i]["data"]
 
-    plot_RCs(r, data["Vdisk"].values * jnp.sqrt(pdisk), rad, v_disk)
-    plot_SBdisk(r, jnp.array(data["SBdisk"]) * 1e6, rad, SBdisk)
+            ax = axes1[i]
+            ax.plot(r_i, data_i["Vdisk"].values * jnp.sqrt(pdisk), 'o', label="Data Vdisk", markersize=4)
+            ax.plot(rad_i, v_disk_i, '-', label="Model Vdisk", linewidth=1.5)
+            ax.set_title(gal_i, fontsize=10)
+            if i >= 4: ax.set_xlabel("Radius (kpc)", fontsize=9)
+            if i == 0 or i == 4: ax.set_ylabel("Vdisk (km/s)", fontsize=9)
+            ax.grid(True)
+            ax.legend(fontsize=8)
+        except Exception as e:
+            axes1[i].text(0.5, 0.5, f"Error: {gal_i}\n{e}", ha='center', va='center', wrap=True)
+            axes1[i].set_title(gal_i, fontsize=10)
+            axes1[i].grid(False)
+
+    plt.tight_layout()
+    fig1.savefig("/mnt/users/koe/SPARC_RAR/test_vcdisk.png", dpi=300)
+    plt.close(fig1)
+
+    # --- Surface brightness grid (2x4) ---
+    fig2, axes2 = plt.subplots(2, 4, figsize=(16, 8), sharex=False, sharey=False)
+    axes2 = axes2.flatten()
+    for i, gal_i in enumerate(gals):
+        try:
+            inc_i, Rdisk_i = get_table(gal_i)
+            rad_i, SBdisk_i = get_SBdisk(gal_i, inc_i)
+
+            r_i = jnp.array(SPARC_data[gal_i]["r"])
+            data_i = SPARC_data[gal_i]["data"]
+
+            ax = axes2[i]
+            ax.plot(r_i, jnp.array(data_i["SBdisk"]) * 1e6, 'o', label="Data SBdisk", markersize=4)
+            ax.plot(rad_i, SBdisk_i, '-', label="Model SBdisk", linewidth=1.5)
+            ax.set_yscale("log")
+            ax.set_title(gal_i, fontsize=10)
+            if i >= 4: ax.set_xlabel("Radius (kpc)", fontsize=9)
+            if i == 0 or i == 4: ax.set_ylabel("SBdisk (Lsun/kpc^2)", fontsize=9)
+            ax.grid(True, which="both", ls="--", lw=0.5)
+            ax.legend(fontsize=8)
+        except Exception as e:
+            axes2[i].text(0.5, 0.5, f"Error: {gal_i}\n{e}", ha='center', va='center', wrap=True)
+            axes2[i].set_title(gal_i, fontsize=10)
+            axes2[i].grid(False)
+
+    plt.tight_layout()
+    fig2.savefig("/mnt/users/koe/SPARC_RAR/test_SBdisk.png", dpi=300)
+    plt.close(fig2)
