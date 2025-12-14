@@ -14,6 +14,8 @@ from utils_analysis.get_SPARC import get_SPARC_data
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
+from scipy.interpolate import pchip_interpolate
+
 
 use_dens = True
 fit_const = False
@@ -49,8 +51,8 @@ def get_SBdisk(galaxy:str, inc:float):
     _, _, L = get_table(galaxy)
     SBdisk = SBdisk_raw * L / Ltot
 
-    print(f"\nGalaxy {galaxy}: L_disk (from .dens) = {Ltot:.0f}, L_disk (SPARC) = {L:.0f},"
-          f"\n cos(inc) = {jnp.cos(inc*jnp.pi/180):.3f}, scale factor = {L / Ltot:.3f}")
+    # print(f"\nGalaxy {galaxy}: L_disk (from .dens) = {Ltot:.0f}, L_disk (SPARC) = {L:.0f},"
+    #       f"\n cos(inc) = {jnp.cos(inc*jnp.pi/180):.3f}, scale factor = {L / Ltot:.3f}")
 
     return rad, SBdisk
 
@@ -93,7 +95,7 @@ def fit_multiplicative_constant(rad_model, SB_model, r_data, SB_data):
     sd_mask = sd[mask]
 
     # Interpolate model onto data radii
-    sm_interp = _np.interp(rd_mask, rm, sm)
+    sm_interp = pchip_interpolate(rm, sm, rd_mask)
 
     # Remove zero model points
     nonzero = sm_interp != 0
@@ -117,25 +119,24 @@ if __name__ == "__main__":
     
 
     # Fit multiplicative constant for each galaxy and store results
-    if fit_const:
-        SB_scales = {}
-        for gal in gals:
-            try:
-                inc_i, Rdisk_i, _ = get_table(gal)
-                if use_dens:
-                    rad_i, SBdisk_i = get_SBdisk(gal, inc_i)
-                else:
-                    rad_i = jnp.array(SPARC_data[gal]["r"])
-                    SBdisk_i = jnp.array(SPARC_data[gal]["data"]["SBdisk"]) * 1e6
+    SB_scales = {}
+    for gal in gals:
+        try:
+            inc_i, Rdisk_i, _ = get_table(gal)
+            if use_dens:
+                rad_i, SBdisk_i = get_SBdisk(gal, inc_i)
+            else:
+                rad_i = jnp.array(SPARC_data[gal]["r"])
+                SBdisk_i = jnp.array(SPARC_data[gal]["data"]["SBdisk"]) * 1e6
 
-                r_i = jnp.array(SPARC_data[gal]["r"])
-                data_SB = jnp.array(SPARC_data[gal]["data"]["SBdisk"]) * 1e6
+            r_i = jnp.array(SPARC_data[gal]["r"])
+            data_SB = jnp.array(SPARC_data[gal]["data"]["SBdisk"]) * 1e6
 
-                SB_scales[gal] = fit_multiplicative_constant(rad_i, SBdisk_i, r_i, data_SB)
-            except Exception:
-                SB_scales[gal] = None
+            SB_scales[gal] = fit_multiplicative_constant(rad_i, SBdisk_i, r_i, data_SB)
+        except Exception:
+            SB_scales[gal] = None
 
-        print("Best-fit SB multiplicative constants:", SB_scales)
+    print("Best-fit SB multiplicative constants:", SB_scales)
 
 
     # --- Rotation curve grid (2x4) ---
@@ -190,7 +191,7 @@ if __name__ == "__main__":
                 x_model = _np.asarray(adjusted_line.get_xdata())
                 y_model = _np.asarray(adjusted_line.get_ydata())
 
-                sm_interp = _np.interp(x_data, x_model, y_model)
+                sm_interp = pchip_interpolate(x_model, y_model, x_data)
                 nonzero = y_data != 0
                 max_allowed = min(_np.max(x_data), _np.max(x_model))
                 in_range = (x_data >= _np.min(x_model)) & (x_data <= max_allowed)
@@ -198,7 +199,7 @@ if __name__ == "__main__":
 
                 frac = _np.full_like(x_data, _np.nan, dtype=float)
                 if valid.any():
-                    sm_interp_valid = _np.interp(x_data[valid], x_model, y_model)
+                    sm_interp_valid = pchip_interpolate(x_model, y_model, x_data[valid])
                     frac[valid] = (sm_interp_valid - y_data[valid]) / y_data[valid]
 
                 ax_res.plot(x_data, frac, c="tab:blue", marker="o", ms=3, label="(model - data) / data", alpha=0.7)
@@ -288,7 +289,7 @@ if __name__ == "__main__":
                 y_model = _np.asarray(adjusted_line.get_ydata())
 
                 # interpolate adjusted model onto data radii
-                sm_interp = _np.interp(x_data, x_model, y_model)
+                sm_interp = pchip_interpolate(x_model, y_model, x_data)
 
                 # fractional residuals (model - data) / data, avoid divide-by-zero
                 nonzero = y_data != 0
@@ -300,7 +301,7 @@ if __name__ == "__main__":
 
                 frac = _np.full_like(x_data, _np.nan, dtype=float)
                 if valid.any():
-                    sm_interp_valid = _np.interp(x_data[valid], x_model, y_model)
+                    sm_interp_valid = pchip_interpolate(x_model, y_model, x_data[valid])
                     frac[valid] = (sm_interp_valid - y_data[valid]) / y_data[valid]
 
                 ax_res.plot(x_data, frac, c="tab:blue", marker="o", ms=3, label="(model - data) / data", alpha=0.7)
@@ -382,7 +383,7 @@ if __name__ == "__main__":
                 else: sb_adj_np = _np.asarray(SBdisk_i)
 
                 # Interpolate adjusted model onto data radii
-                sm_interp = _np.interp(r_np, rad_np, sb_adj_np)
+                sm_interp = pchip_interpolate(rad_np, sb_adj_np, r_np)
                 # Avoid division by zero in data
                 nonzero = data_SB != 0
                 frac = _np.full_like(r_np, _np.nan, dtype=float)
