@@ -14,8 +14,6 @@ from utils_analysis.get_SPARC import get_SPARC_data
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
-from scipy.interpolate import pchip_interpolate
-
 
 use_dens = True
 fit_const = False
@@ -95,7 +93,7 @@ def fit_multiplicative_constant(rad_model, SB_model, r_data, SB_data):
     sd_mask = sd[mask]
 
     # Interpolate model onto data radii
-    sm_interp = pchip_interpolate(rm, sm, rd_mask)
+    sm_interp = jnp.interp(rd_mask, rm, sm)
 
     # Remove zero model points
     nonzero = sm_interp != 0
@@ -191,7 +189,7 @@ if __name__ == "__main__":
                 x_model = _np.asarray(adjusted_line.get_xdata())
                 y_model = _np.asarray(adjusted_line.get_ydata())
 
-                sm_interp = pchip_interpolate(x_model, y_model, x_data)
+                sm_interp = jnp.interp(x_data, x_model, y_model)
                 nonzero = y_data != 0
                 max_allowed = min(_np.max(x_data), _np.max(x_model))
                 in_range = (x_data >= _np.min(x_model)) & (x_data <= max_allowed)
@@ -199,7 +197,7 @@ if __name__ == "__main__":
 
                 frac = _np.full_like(x_data, _np.nan, dtype=float)
                 if valid.any():
-                    sm_interp_valid = pchip_interpolate(x_model, y_model, x_data[valid])
+                    sm_interp_valid = jnp.interp(x_data[valid], x_model, y_model)
                     frac[valid] = (sm_interp_valid - y_data[valid]) / y_data[valid]
 
                 ax_res.plot(x_data, frac, c="tab:blue", marker="o", ms=3, label="(model - data) / data", alpha=0.7)
@@ -220,7 +218,7 @@ if __name__ == "__main__":
                 ax_res.set_xlabel("Radius (kpc)", fontsize=9)
             if i == 0 or i == 4:
                 ax_res.set_ylabel("Frac. resid.", fontsize=9)
-            ax_main.xaxis.set_ticklabels([])
+            # ax_main.xaxis.set_ticklabels([])
 
         except Exception as e:
             axes0[i].text(0.5, 0.5, f"Error: {gal_i}\n{e}", ha='center', va='center', wrap=True)
@@ -289,7 +287,7 @@ if __name__ == "__main__":
                 y_model = _np.asarray(adjusted_line.get_ydata())
 
                 # interpolate adjusted model onto data radii
-                sm_interp = pchip_interpolate(x_model, y_model, x_data)
+                sm_interp = jnp.interp(x_data, x_model, y_model)
 
                 # fractional residuals (model - data) / data, avoid divide-by-zero
                 nonzero = y_data != 0
@@ -301,7 +299,7 @@ if __name__ == "__main__":
 
                 frac = _np.full_like(x_data, _np.nan, dtype=float)
                 if valid.any():
-                    sm_interp_valid = pchip_interpolate(x_model, y_model, x_data[valid])
+                    sm_interp_valid = jnp.interp(x_data[valid], x_model, y_model)
                     frac[valid] = (sm_interp_valid - y_data[valid]) / y_data[valid]
 
                 ax_res.plot(x_data, frac, c="tab:blue", marker="o", ms=3, label="(model - data) / data", alpha=0.7)
@@ -323,7 +321,7 @@ if __name__ == "__main__":
                 ax_res.set_xlabel("Radius (kpc)", fontsize=9)
             if i == 0 or i == 4:
                 ax_res.set_ylabel("Frac. resid.", fontsize=9)
-            ax_main.xaxis.set_ticklabels([])  # hide x tick labels on the main axis
+            # ax_main.xaxis.set_ticklabels([])  # hide x tick labels on the main axis
 
         except Exception as e:
             axes1[i].text(0.5, 0.5, f"Error: {gal_i}\n{e}", ha='center', va='center', wrap=True)
@@ -383,7 +381,7 @@ if __name__ == "__main__":
                 else: sb_adj_np = _np.asarray(SBdisk_i)
 
                 # Interpolate adjusted model onto data radii
-                sm_interp = pchip_interpolate(rad_np, sb_adj_np, r_np)
+                sm_interp = jnp.interp(r_np, rad_np, sb_adj_np)
                 # Avoid division by zero in data
                 nonzero = data_SB != 0
                 frac = _np.full_like(r_np, _np.nan, dtype=float)
@@ -405,7 +403,7 @@ if __name__ == "__main__":
             ax_res.grid(True, which="both", ls="--", lw=0.5)
 
             # Hide x tick labels on the main axis to avoid overlap
-            ax_main.xaxis.set_ticklabels([])
+            # ax_main.xaxis.set_ticklabels([])
 
         except Exception as e:
             axes2[i].text(0.5, 0.5, f"Error: {gal_i}\n{e}", ha='center', va='center', wrap=True)
